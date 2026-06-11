@@ -185,6 +185,11 @@ torchrun --nproc_per_node=8 training/launch.py --config default_finetune_online_
 
 
 
+## License
+
+Code is licensed under the [VGGT License](./LICENSE). Released checkpoints derived from `facebook/VGGT-1B` are restricted to non-commercial use under CC BY-NC 4.0.
+
+
 
 ## Acknowledgements
 
