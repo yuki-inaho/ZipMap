@@ -6,6 +6,9 @@ local_data/
 debug_testing
 input_images_*
 checkpoints
+# Local inference artifacts produced by the non-interactive Streaming CLI.
+inference_outputs/
+zipmap_outputs/
 # Byte-compiled / optimized / DLL files
 __pycache__/
 **/__pycache__/
@@ -153,4 +156,3 @@ skyseg.onnx
 *.egg-info
 raw_data/
 .gradio/certificate.pem
-

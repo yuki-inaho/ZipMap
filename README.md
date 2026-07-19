@@ -72,6 +72,36 @@ TORCH_COMPILE_DISABLE=1 python demo_gradio_zipmap_streaming.py --ckpt_path /path
 ```
 </details>
 
+### 2.4 Gradio-free sequential RGB CLI and smoke test
+
+For a sorted sequential RGB directory, use the Streaming checkpoint and the
+non-interactive CLI. Input names should be zero-padded so that lexicographic
+order is temporal order (for example `000000.png`, `000001.png`, ...).
+
+```bash
+mkdir -p checkpoints
+hf download coast01/ZipMap checkpoint_online.pt --local-dir checkpoints
+
+python scripts/run_zipmap_streaming_sequence.py \
+  --input-dir /path/to/sequential_rgb \
+  --checkpoint checkpoints/checkpoint_online.pt \
+  --output-dir /path/to/output \
+  --window-size 1
+```
+
+The output directory contains `predictions.npz` with frame names, W2C poses,
+intrinsics, depth, and depth confidence, plus a compact `summary.json`.
+
+The repository includes a GPU smoke test. It extracts two consecutive frames
+from `examples/videos/drift-straight.mp4`, runs the CLI, and validates finite
+pose and depth outputs. The default test suite excludes GPU tests; run the
+model smoke test explicitly:
+
+```bash
+pytest
+TORCH_COMPILE_DISABLE=1 pytest -m gpu -q
+```
+
 ### 2.3 Quantitative Evaluation
 See branch `evaluation` for code and instructions on how to run the quantitative evaluation and runtime measurements. Our evaluation code is heavily built on top of [this repository](https://github.com/ZhouTimeMachine/recons_eval) provided by the authors of [Pi3](https://github.com/yyfz/Pi3). We sincerely thank the authors for their open-source contributions.
 
@@ -201,4 +231,3 @@ Our code is built on top of the following repositories:
 - [LaCT](https://github.com/a1600012888/LaCT)
 
 We sincerely thank the authors of these repositories for their open-source contributions, which have greatly helped this project.
-
