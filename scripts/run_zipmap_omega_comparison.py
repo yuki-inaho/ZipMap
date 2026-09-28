@@ -46,6 +46,8 @@ def worker_command(
     checkpoint: Path,
     output: Path,
     max_frames: int | None,
+    image_size: int | None,
+    model_fp16: bool = False,
 ) -> list[str]:
     command = [
         str(python),
@@ -61,6 +63,10 @@ def worker_command(
     ]
     if max_frames is not None:
         command += ["--max-frames", str(max_frames)]
+    if image_size is not None:
+        command += ["--image-size", str(image_size)]
+    if model_fp16:
+        command += ["--model-fp16"]
     return command
 
 
@@ -84,6 +90,9 @@ def main() -> None:
         help="One GPU ID runs sequentially; two IDs run concurrently",
     )
     parser.add_argument("--max-frames", type=int)
+    parser.add_argument("--zipmap-image-size", type=int, default=518)
+    parser.add_argument("--omega-image-size", type=int, default=384)
+    parser.add_argument("--zipmap-model-fp16", action="store_true")
     args = parser.parse_args()
 
     if (
@@ -144,6 +153,8 @@ def main() -> None:
             checkpoint,
             result_dir,
             None if args.video else args.max_frames,
+            args.zipmap_image_size if model == "zipmap" else args.omega_image_size,
+            args.zipmap_model_fp16 if model == "zipmap" else False,
         )
         env = os.environ.copy()
         env["CUDA_VISIBLE_DEVICES"] = str(gpu)

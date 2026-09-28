@@ -52,14 +52,22 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--window-size", type=int, default=1)
-    parser.add_argument("--align-first-view", action=argparse.BooleanOptionalAction, default=True)
+    parser.add_argument(
+        "--align-first-view", action=argparse.BooleanOptionalAction, default=True
+    )
     parser.add_argument("--ema", action="store_true")
-    parser.add_argument("--save-rgb", action="store_true", help="Save preprocessed rgb.npy for Rerun visualization")
+    parser.add_argument(
+        "--save-rgb",
+        action="store_true",
+        help="Save preprocessed rgb.npy for Rerun visualization",
+    )
     return parser.parse_args()
 
 
 def collect_images(input_dir: Path, max_frames: int | None) -> list[Path]:
-    images = sorted(path for path in input_dir.iterdir() if path.suffix.lower() in IMAGE_SUFFIXES)
+    images = sorted(
+        path for path in input_dir.iterdir() if path.suffix.lower() in IMAGE_SUFFIXES
+    )
     if max_frames is not None:
         if max_frames < 1:
             raise ValueError("--max-frames must be positive")
@@ -69,22 +77,39 @@ def collect_images(input_dir: Path, max_frames: int | None) -> list[Path]:
     return images
 
 
-def load_model(checkpoint_path: Path, use_ema: bool, device: torch.device) -> ZipMap:
+def load_model(
+    checkpoint_path: Path,
+    use_ema: bool,
+    device: torch.device,
+    dtype: torch.dtype | None = None,
+) -> ZipMap:
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    state = checkpoint.get("ema") if use_ema and "ema" in checkpoint else checkpoint.get("model", checkpoint)
+    state = (
+        checkpoint.get("ema")
+        if use_ema and "ema" in checkpoint
+        else checkpoint.get("model", checkpoint)
+    )
     model = ZipMap(**STREAMING_CONFIG)
     missing, unexpected = model.load_state_dict(state, strict=False)
     if missing or unexpected:
-        raise RuntimeError(f"Checkpoint mismatch: missing={missing}, unexpected={unexpected}")
-    return model.eval().to(device)
+        raise RuntimeError(
+            f"Checkpoint mismatch: missing={missing}, unexpected={unexpected}"
+        )
+    return (
+        model.eval().to(device=device, dtype=dtype)
+        if dtype is not None
+        else model.eval().to(device)
+    )
 
 
 def align_to_first_view(extrinsics: torch.Tensor) -> torch.Tensor:
     """Express W2C poses in the coordinate system of frame zero."""
     count = extrinsics.shape[1]
-    homogeneous = torch.eye(4, dtype=extrinsics.dtype, device=extrinsics.device).repeat(1, count, 1, 1)
+    homogeneous = torch.eye(4, dtype=extrinsics.dtype, device=extrinsics.device).repeat(
+        1, count, 1, 1
+    )
     homogeneous[:, :, :3, :] = extrinsics
     first_camera_to_world = torch.linalg.inv(homogeneous[:, :1])
     return (homogeneous @ first_camera_to_world)[:, :, :3, :]
@@ -100,16 +125,23 @@ def main() -> int:
     device = torch.device("cuda")
     model = load_model(args.checkpoint, args.ema, device)
     images = load_and_preprocess_images([str(path) for path in image_paths]).to(device)
-    dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+    dtype = (
+        torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
+    )
     with torch.inference_mode(), torch.amp.autocast("cuda", dtype=dtype):
         predictions = model(images, window_size=args.window_size)
-    extrinsics, intrinsics = pose_encoding_to_extri_intri(predictions["pose_enc"], images.shape[-2:])
+    extrinsics, intrinsics = pose_encoding_to_extri_intri(
+        predictions["pose_enc"], images.shape[-2:]
+    )
     if args.align_first_view:
         extrinsics = align_to_first_view(extrinsics)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     if args.save_rgb:
-        np.save(args.output_dir / "rgb.npy", images.permute(0, 2, 3, 1).mul(255).round().byte().cpu().numpy())
+        np.save(
+            args.output_dir / "rgb.npy",
+            images.permute(0, 2, 3, 1).mul(255).round().byte().cpu().numpy(),
+        )
     np.savez_compressed(
         args.output_dir / "predictions.npz",
         frame_names=np.asarray([path.name for path in image_paths]),
@@ -129,7 +161,9 @@ def main() -> int:
         "checkpoint": str(args.checkpoint),
         "output": str(args.output_dir / "predictions.npz"),
     }
-    (args.output_dir / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    (args.output_dir / "summary.json").write_text(
+        json.dumps(summary, indent=2) + "\n", encoding="utf-8"
+    )
     print(json.dumps(summary, indent=2))
     return 0
 

@@ -95,10 +95,69 @@ remain in arbitrary model units, not calibrated metres.
 
 ### One command: ZipMap + VGGT-Omega + Rerun
 
+#### RTX 2070 grass-video workflow
+
+The `rtx2070` branch runs the two published checkpoints sequentially on one
+8 GB GPU, with FP16 autocast on compute capability 7.5. For ZipMap the backbone
+weights are FP16 while the prediction heads stay FP32, since their forward pass
+disables autocast. The comparison worker
+keeps the portrait frame for ZipMap by padding instead of center-cropping;
+VGGT-Omega uses a 384-pixel maximum side by default. Start with the same
+numbered grass keyframes used by COLMAP and MoGe:
+
+```bash
+uv sync --extra viz --group dev
+uv run hf download coast01/ZipMap checkpoint_online.pt --local-dir checkpoints
+uv run --extra viz python scripts/run_zipmap_omega_comparison.py \
+  --input-dir /path/to/numbered-grass-keyframes \
+  --zipmap-checkpoint checkpoints/checkpoint_online.pt \
+  --omega-repo /path/to/vggt-omega \
+  --omega-checkpoint /path/to/vggt-omega/checkpoints/vggt_omega_1b_512.pt \
+  --output-dir inference_outputs/grass_rtx2070 --gpus 0 --max-frames 4 \
+  --zipmap-image-size 280 --zipmap-model-fp16 --omega-image-size 384
+```
+
+These are two independent, pretrained pose/depth predictions, not a retrained
+ZipMap model with a VGGT-Omega backbone. For COLMAP-pose-based dense grass
+reconstruction and depth scale calibration from good CoWTracker 3D tracks, run
+MoGe-3 ViT-L in the separate MoGe `rtx2070` branch. That reconstruction uses
+COLMAP's arbitrary units rather than physical metres.
+
+If MoGe has exported `temp/grass-anchors`, compare pose and depth to the
+COLMAP reconstruction with held-out track IDs:
+
+```bash
+uv run python scripts/evaluate_grass_rtx2070.py \
+  --zipmap inference_outputs/grass_rtx2070/zipmap/predictions.npz \
+  --omega inference_outputs/grass_rtx2070/omega/predictions.npz \
+  --anchors /path/to/MoGe/temp/grass-anchors \
+  --colmap-model /path/to/COLMAP-TXT-model \
+  --output inference_outputs/grass_rtx2070/anchor_evaluation.json
+```
+
+For all 85 frames, keep GPU memory bounded with four-frame chunks. Each chunk
+has its own TTT/Omega pose frame; use COLMAP for the whole-sequence poses.
+
+```bash
+TORCH_COMPILE_DISABLE=1 uv run python scripts/run_zipmap_rtx2070_sequence.py \
+  --input-dir /path/to/numbered-grass-keyframes \
+  --checkpoint checkpoints/checkpoint_online.pt \
+  --output-dir inference_outputs/grass_zipmap_85
+/path/to/vggt-omega/.venv/bin/python scripts/run_omega_rtx2070_sequence.py \
+  --input-dir /path/to/numbered-grass-keyframes \
+  --checkpoint /path/to/vggt-omega/checkpoints/vggt_omega_1b_512.pt \
+  --output-dir inference_outputs/grass_omega_85
+```
+
+Run the second command from a directory where `vggt_omega` is importable, or
+install that repository into its own environment. The saved per-frame depth
+can then be scaled and fused by MoGe's `calibrate_external_grass_depth.py` and
+`refine_grass_depth_scale.py` using the exported track anchors.
+
 This runs **two separate models** on the same ordered frames and writes one
 `comparison.rrd` with a tab for each model. ZipMap does not use VGGT-Omega as
 an internal model component. VGGT-Omega stays in its own repository and Python
-environment; that environment needs a CUDA 12.8+ PyTorch build on RTX 5090.
+environment; use a CUDA 12.8+ PyTorch build compatible with the target GPU.
 The VGGT-Omega checkpoint requires approved Hugging Face access.
 
 ```bash
