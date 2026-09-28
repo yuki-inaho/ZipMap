@@ -1,0 +1,3 @@
+interface:
+  display_name: "GPU Inference Validation"
+  short_description: "Validate GPU inference and reconstruction quality"
