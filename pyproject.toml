@@ -1,8 +1,8 @@
 [project]
 authors = [{name = "Haian Jin", email = "haianjin0415@gmail.com"}]
 dependencies = [
-    "torch==2.6.0",
-    "torchvision==0.21.0",
+    "torch==2.8.0",
+    "torchvision==0.23.0",
     "numpy>=1.26.4",
     "Pillow",
     "opencv-python-headless",
@@ -35,6 +35,15 @@ version = "0.0.1"
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 
 [dependency-groups]
 dev = [

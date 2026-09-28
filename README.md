@@ -43,6 +43,33 @@ pip install -e .
 ```
 
 ## 2. Inference
+
+### RTX 5090 / uv (`blackwell` branch)
+
+`uv sync --group dev` installs PyTorch 2.8 CUDA 12.8 wheels for RTX 5090.
+Use one GPU for a single Streaming sequence; the model keeps temporal state,
+so splitting one sequence between GPUs is not equivalent to one uninterrupted run.
+
+```bash
+uv sync --group dev
+uv run hf download coast01/ZipMap checkpoint_online.pt --local-dir checkpoints
+TORCH_COMPILE_DISABLE=1 uv run python scripts/run_zipmap_streaming_sequence.py \
+  --input-dir /path/to/frames --checkpoint checkpoints/checkpoint_online.pt \
+  --output-dir inference_outputs/single
+```
+
+For independent sequences, put each sequence in a separate directory directly
+under `/path/to/sequences`. The launcher uses GPU 0 by default; specify two
+GPU IDs to process two sequences at once. Each sequence keeps its own output
+and coordinate system.
+
+```bash
+uv run python scripts/run_gpu_sequences.py --input-root /path/to/sequences \
+  --output-root inference_outputs/batch --checkpoint checkpoints/checkpoint_online.pt
+uv run python scripts/run_gpu_sequences.py --input-root /path/to/sequences \
+  --output-root inference_outputs/batch --checkpoint checkpoints/checkpoint_online.pt --gpus 0 1
+```
+
 ### 2.1 ZipMap Checkpoints
 Download the ZipMap checkpoints hosted on Hugging Face:
 | Model | Description |
@@ -218,6 +245,8 @@ torchrun --nproc_per_node=8 training/launch.py --config default_finetune_online_
 ## License
 
 Code is licensed under the [VGGT License](./LICENSE). Released checkpoints derived from `facebook/VGGT-1B` are restricted to non-commercial use under CC BY-NC 4.0.
+
+For this Blackwell branch's intended non-commercial research use, see [LICENSE_NOTES.md](./LICENSE_NOTES.md). The original license terms remain controlling.
 
 
 

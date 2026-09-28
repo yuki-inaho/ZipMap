@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -116,6 +117,8 @@ def main() -> int:
     )
     summary = {
         "model": "ZipMap Streaming",
+        "gpu": torch.cuda.get_device_name(device),
+        "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
         "frame_count": len(image_paths),
         "image_shape": list(images.shape),
         "window_size": args.window_size,
