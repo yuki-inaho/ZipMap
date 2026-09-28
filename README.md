@@ -70,6 +70,39 @@ uv run python scripts/run_gpu_sequences.py --input-root /path/to/sequences \
   --output-root inference_outputs/batch --checkpoint checkpoints/checkpoint_online.pt --gpus 0 1
 ```
 
+### Rerun: RGB, depth, point cloud, and camera-follow view
+
+Install `uv sync --extra viz --group dev`. Add `--save-rgb` to the Streaming
+CLI to save preprocessed `rgb.npy` alongside `predictions.npz`, so the image
+coordinates match the predicted intrinsics. Then export a Rerun recording:
+
+```bash
+uv run --extra viz python scripts/visualize_reconstruction.py \
+  --result ZipMap=inference_outputs/single \
+  --output inference_outputs/single/reconstruction.rrd
+uv run --extra viz rerun inference_outputs/single/reconstruction.rrd
+```
+
+The four panels show RGB, relative depth, the world point cloud/camera poses,
+and the point cloud rendered from the current camera pose. Move the `frame`
+timeline or press play to update the images and camera view together.
+`--result NAME=DIRECTORY` may be repeated to compare saved model results in tabs
+(including VGGT-Omega results using the same NPZ schema and `rgb.npy`).
+The point cloud combines all frames; it is not a causal incremental map.
+By default it retains the upper 75% of confidence values per frame, samples
+every two pixels, and caps the cloud at 500,000 points. Depth and translations
+remain in arbitrary model units, not calibrated metres.
+
+For a browser viewer (also useful in containers):
+
+```bash
+uv run --extra viz rerun --serve-web --bind 127.0.0.1 --port 9878 \
+  --web-viewer-port 9090 inference_outputs/single/reconstruction.rrd
+```
+
+Open the connection URL printed by Rerun. The layout is inspired by the
+[VGGT-Omega RGB-D visualization](https://github.com/yuki-inaho/vggt-omega/blob/blackwell-develop/vggt_omega/visualize.py).
+
 ### 2.1 ZipMap Checkpoints
 Download the ZipMap checkpoints hosted on Hugging Face:
 | Model | Description |

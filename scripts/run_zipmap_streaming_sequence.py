@@ -54,6 +54,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--window-size", type=int, default=1)
     parser.add_argument("--align-first-view", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--ema", action="store_true")
+    parser.add_argument("--save-rgb", action="store_true", help="Save preprocessed rgb.npy for Rerun visualization")
     return parser.parse_args()
 
 
@@ -107,6 +108,8 @@ def main() -> int:
         extrinsics = align_to_first_view(extrinsics)
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
+    if args.save_rgb:
+        np.save(args.output_dir / "rgb.npy", images.permute(0, 2, 3, 1).mul(255).round().byte().cpu().numpy())
     np.savez_compressed(
         args.output_dir / "predictions.npz",
         frame_names=np.asarray([path.name for path in image_paths]),
