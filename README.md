@@ -93,6 +93,34 @@ By default it retains the upper 75% of confidence values per frame, samples
 every two pixels, and caps the cloud at 500,000 points. Depth and translations
 remain in arbitrary model units, not calibrated metres.
 
+### One command: ZipMap + VGGT-Omega + Rerun
+
+This runs **two separate models** on the same ordered frames and writes one
+`comparison.rrd` with a tab for each model. ZipMap does not use VGGT-Omega as
+an internal model component. VGGT-Omega stays in its own repository and Python
+environment; that environment needs a CUDA 12.8+ PyTorch build on RTX 5090.
+The VGGT-Omega checkpoint requires approved Hugging Face access.
+
+```bash
+uv sync --extra viz --group dev
+uv run --extra viz python scripts/run_zipmap_omega_comparison.py \
+  --video examples/videos/kitchen.mp4 \
+  --zipmap-checkpoint checkpoints/checkpoint_online.pt \
+  --omega-repo /path/to/vggt-omega \
+  --omega-checkpoint /path/to/vggt-omega/checkpoints/vggt_omega_1b_512.pt \
+  --output-dir inference_outputs/kitchen_comparison
+```
+
+The default runs both models sequentially on GPU 0. Add `--gpus 0 1` to run
+them concurrently on two GPUs. Use `--input-dir /path/to/ordered-images`
+instead of `--video` for a prepared RGB sequence; `--max-frames N` limits either
+input. The output directory must start empty. It receives each model's NPZ,
+preprocessed RGB, runtime JSON and log, followed by `comparison.rrd`.
+
+```bash
+uv run --extra viz rerun inference_outputs/kitchen_comparison/comparison.rrd
+```
+
 For a browser viewer (also useful in containers):
 
 ```bash
