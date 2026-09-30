@@ -52,6 +52,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--max-frames", type=int, default=None)
     parser.add_argument("--window-size", type=int, default=1)
+    parser.add_argument("--preprocess-mode", choices=("crop", "pad"), default="crop")
     parser.add_argument("--align-first-view", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--ema", action="store_true")
     parser.add_argument("--save-rgb", action="store_true", help="Save preprocessed rgb.npy for Rerun visualization")
@@ -99,7 +100,7 @@ def main() -> int:
     image_paths = collect_images(args.input_dir, args.max_frames)
     device = torch.device("cuda")
     model = load_model(args.checkpoint, args.ema, device)
-    images = load_and_preprocess_images([str(path) for path in image_paths]).to(device)
+    images = load_and_preprocess_images([str(path) for path in image_paths], mode=args.preprocess_mode).to(device)
     dtype = torch.bfloat16 if torch.cuda.get_device_capability()[0] >= 8 else torch.float16
     with torch.inference_mode(), torch.amp.autocast("cuda", dtype=dtype):
         predictions = model(images, window_size=args.window_size)
@@ -125,6 +126,7 @@ def main() -> int:
         "frame_count": len(image_paths),
         "image_shape": list(images.shape),
         "window_size": args.window_size,
+        "preprocess_mode": args.preprocess_mode,
         "align_first_view": args.align_first_view,
         "checkpoint": str(args.checkpoint),
         "output": str(args.output_dir / "predictions.npz"),
